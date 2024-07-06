@@ -1,44 +1,42 @@
-import React, { useState } from 'react'
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { downloadVideo } from '@/lib/api'
-import { validateYouTubeUrl } from '@/lib/utils'
+import React, { useState } from 'react';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { Progress } from '@/components/ui/progress';
+import { downloadVideo } from '@/lib/api';
+import { validateYouTubeUrl } from '@/lib/utils';
 
-interface DownloadFormProps {
-  onDownloadStart: () => void
-  onDownloadProgress: (progress: number, fileSize: number) => void
-  onDownloadComplete: () => void
-  onError: (error: string) => void
-}
-
-export const DownloadForm: React.FC<DownloadFormProps> = ({
-  onDownloadStart,
-  onDownloadProgress,
-  onDownloadComplete,
-  onError
-}) => {
-  const [url, setUrl] = useState('')
-  const [isLoading, setIsLoading] = useState(false)
+export const DownloadForm: React.FC = () => {
+  const [url, setUrl] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState('');
+  const [progress, setProgress] = useState(0);
+  const [downloadedFile, setDownloadedFile] = useState<string | null>(null);
 
   const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
+    e.preventDefault();
     if (!validateYouTubeUrl(url)) {
-      onError('Please enter a valid YouTube URL')
-      return
+      setError('Please enter a valid YouTube URL');
+      return;
     }
 
-    setIsLoading(true)
-    onDownloadStart()
+    setIsLoading(true);
+    setError('');
+    setProgress(0);
+    setDownloadedFile(null);
 
     try {
-      await downloadVideo(url, onDownloadProgress)
-      onDownloadComplete()
+      const filename = await downloadVideo(url, (progress, fileSize) => {
+        setProgress(progress);
+      });
+      setDownloadedFile(filename);
     } catch (error: any) {
-      onError(error.message || 'An error occurred while downloading the video.')
+      const errorMessage = error.message || 'An error occurred while downloading the video.';
+      setError(errorMessage);
     } finally {
-      setIsLoading(false)
+      setIsLoading(false);
     }
-  }
+  };
 
   return (
     <form onSubmit={handleSubmit} className="w-full max-w-md">
@@ -53,7 +51,25 @@ export const DownloadForm: React.FC<DownloadFormProps> = ({
         <Button type="submit" disabled={isLoading}>
           {isLoading ? 'Downloading...' : 'Download'}
         </Button>
+        {isLoading && (
+          <div className="w-full">
+            <Progress value={progress} className="w-full" />
+            <p className="text-center mt-2">{progress.toFixed(2)}% downloaded</p>
+          </div>
+        )}
+        {downloadedFile && (
+          <Alert>
+            <AlertTitle>Download Complete</AlertTitle>
+            <AlertDescription>File &quot;{downloadedFile}&quot; has been downloaded.</AlertDescription>
+          </Alert>
+        )}
+        {error && (
+          <Alert variant="destructive">
+            <AlertTitle>Error</AlertTitle>
+            <AlertDescription>{error}</AlertDescription>
+          </Alert>
+        )}
       </div>
     </form>
-  )
-}
+  );
+};
